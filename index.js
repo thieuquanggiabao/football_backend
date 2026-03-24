@@ -162,3 +162,49 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
     console.log(`🚪 Cánh cửa đã được mở tại cổng số ${port}`);
 });
+
+// --- CỬA SỐ 2: LẤY HỒ SƠ ĐỘI BÓNG (TỐI ƯU HÓA SUPABASE) ---
+app.get('/api/teams/:id', async (req, res) => {
+    const teamId = req.params.id;
+
+    try {
+        // 1. Gõ cửa Supabase xem đã lưu hồ sơ đội này bao giờ chưa
+        const { data: existingTeam, error: dbError } = await supabase
+            .from('team_profiles')
+            .select('profile_data')
+            .eq('team_id', teamId)
+            .single();
+
+        // NẾU ĐÃ LƯU RỒI -> Lấy thẳng từ Database ra xài (Không tốn request)
+        if (existingTeam && existingTeam.profile_data) {
+            console.log(`⚡ Siêu tốc: Lấy dữ liệu đội ${teamId} từ Supabase`);
+            return res.json(existingTeam.profile_data);
+        }
+
+        // NẾU CHƯA CÓ -> Mới phải gọi API gốc
+        console.log(`🌐 Chưa có dữ liệu. Đang gọi API gốc để lấy đội ${teamId}...`);
+        const response = await axios.get(`https://api.football-data.org/v4/teams/${teamId}`, {
+            headers: {
+                'X-Auth-Token': process.env.FOOTBALL_API_TOKEN,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept': 'application/json'
+            }
+        });
+
+        const teamData = response.data;
+
+        // LẤY VỀ XONG THÌ LƯU LUÔN VÀO SUPABASE ĐỂ DÀNH CHO LẦN SAU
+        await supabase.from('team_profiles').upsert({
+            team_id: teamId,
+            profile_data: teamData,
+            updated_at: new Date().toISOString()
+        });
+
+        // Trả kết quả về cho ứng dụng Flutter
+        res.json(teamData);
+
+    } catch (error) {
+        console.error(`❌ Lỗi khi lấy thông tin đội ${teamId}:`, error.message);
+        res.status(500).json({ error: 'Không thể tải dữ liệu đội bóng' });
+    }
+});
