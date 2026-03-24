@@ -149,3 +149,16 @@ cron.schedule('0 */2 * * *', async () => {
     fetchAndSaveStandings();
     // (Nhớ bỏ dòng process.exit() đi nhé, vì chúng ta không muốn tắt app)
 });
+// --- MỞ CỔNG CHO RENDER VÀ CRON-JOB PING TỚI ---
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Tạo một đường link gốc để trả lời khi có người gõ cửa
+app.get('/', (req, res) => {
+    res.send('Tỉnh dậy đi! Máy chủ Football Backend đang hoạt động 24/24!');
+});
+
+app.listen(port, () => {
+    console.log(`🚪 Cánh cửa đã được mở tại cổng số ${port}`);
+});
