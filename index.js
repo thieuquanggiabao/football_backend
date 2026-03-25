@@ -61,11 +61,16 @@ async function syncLiveMatches() {
 async function fetchAndSaveNews() {
     try {
         console.log('Bắt đầu đi săn tin tức bóng đá...');
-        const apiUrl = `https://newsdata.io/api/1/news?apikey=${NEWS_API_KEY}&category=sports&language=vi`;
+        const keyword = encodeURIComponent('bóng đá');
+        const apiUrl = `https://newsdata.io/api/1/news?apikey=${NEWS_API_KEY}&q=${keyword}&category=sports&language=vi`;
+
         const response = await axios.get(apiUrl);
         const articles = response.data.results;
 
-        if (!articles || articles.length === 0) return;
+        if (!articles || articles.length === 0) {
+            console.log('Không có tin tức bóng đá mới nào.');
+            return;
+        }
 
         const newsData = articles.map(article => ({
             title: article.title,
@@ -77,7 +82,7 @@ async function fetchAndSaveNews() {
 
         const { error } = await supabase.from('news').upsert(newsData, { onConflict: 'article_url' });
         if (error) throw error;
-        console.log(`✅ Đã cất thành công ${newsData.length} bài báo vào kho!`);
+        console.log(`✅ Đã cất thành công ${newsData.length} bài báo BÓNG ĐÁ vào kho!`);
     } catch (error) {
         console.error('❌ Lỗi khi lấy tin tức:', error.message);
     }
@@ -170,7 +175,7 @@ fetchAndSaveStandings();
 // Đặt chuông báo thức
 setInterval(syncLiveMatches, 60 * 1000); // 1 phút / lần
 cron.schedule('0 */2 * * *', fetchAndSaveStandings); // 2 tiếng / lần
-cron.schedule('0 */1 * * *', fetchAndSaveNews); // 4 tiếng / lần
+cron.schedule('0 */1 * * *', fetchAndSaveNews); // 1 tiếng / lần
 
 app.listen(port, () => {
     console.log(`🚪 Cánh cửa đã được mở tại cổng số ${port}`);
