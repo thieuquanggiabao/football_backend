@@ -170,7 +170,7 @@ fetchAndSaveStandings();
 // Đặt chuông báo thức
 setInterval(syncLiveMatches, 60 * 1000); // 1 phút / lần
 cron.schedule('0 */2 * * *', fetchAndSaveStandings); // 2 tiếng / lần
-cron.schedule('0 */4 * * *', fetchAndSaveNews); // 4 tiếng / lần
+cron.schedule('0 */1 * * *', fetchAndSaveNews); // 4 tiếng / lần
 
 app.listen(port, () => {
     console.log(`🚪 Cánh cửa đã được mở tại cổng số ${port}`);
