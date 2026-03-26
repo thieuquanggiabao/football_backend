@@ -61,7 +61,7 @@ async function syncLiveMatches() {
 async function fetchAndSaveNews() {
     try {
         console.log('Bắt đầu đi săn tin tức bóng đá...');
-        const keyword = encodeURIComponent('bóng đá');
+        const keyword = encodeURIComponent('football');
         const apiUrl = `https://newsdata.io/api/1/news?apikey=${NEWS_API_KEY}&q=${keyword}&category=sports&language=vi`;
 
         const response = await axios.get(apiUrl);
@@ -134,7 +134,7 @@ async function fetchAndSaveStandings() {
 app.get('/', (req, res) => {
     res.send('Tỉnh dậy đi! Máy chủ Football Backend đang hoạt động 24/24!');
 });
-// API "Nhịp tim" để giữ mạng cho Render
+
 app.get('/ping', (req, res) => {
     res.status(200).send('Trái tim Backend vẫn đang đập tưng bừng nha!');
 });
