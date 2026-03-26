@@ -132,11 +132,11 @@ async function fetchAndSaveStandings() {
 // ==========================================
 
 app.get('/', (req, res) => {
-    res.send('Tỉnh dậy đi! Máy chủ Football Backend đang hoạt động 24/24!');
+    res.send('ok');
 });
 
 app.get('/ping', (req, res) => {
-    res.status(200).send('Trái tim Backend vẫn đang đập tưng bừng nha!');
+    res.status(200).send('ok');
 });
 
 app.get('/api/teams/:id', async (req, res) => {
