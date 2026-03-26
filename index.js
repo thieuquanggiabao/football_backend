@@ -134,6 +134,10 @@ async function fetchAndSaveStandings() {
 app.get('/', (req, res) => {
     res.send('Tỉnh dậy đi! Máy chủ Football Backend đang hoạt động 24/24!');
 });
+// API "Nhịp tim" để giữ mạng cho Render
+app.get('/ping', (req, res) => {
+    res.status(200).send('Trái tim Backend vẫn đang đập tưng bừng nha!');
+});
 
 app.get('/api/teams/:id', async (req, res) => {
     const teamId = req.params.id;
