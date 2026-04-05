@@ -26,7 +26,7 @@ const LEAGUES = ['PL', 'PD', 'BL1', 'SA', 'FL1']; // 5 giải hàng đầu Châu
 async function syncLiveMatches() {
     try {
         console.log('Đang lấy dữ liệu bóng đá từ football-data.org...');
-        const response = await axios.get('https://api.football-data.org/v4/matches?dateFrom=2026-04-01&dateTo=2026-04-10', {
+        const response = await axios.get('https://api.football-data.org/v4/matches', {
             headers: { 'X-Auth-Token': FOOTBALL_API_TOKEN }
         });
         const matches = response.data.matches;
