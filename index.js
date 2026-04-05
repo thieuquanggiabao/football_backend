@@ -26,7 +26,7 @@ const LEAGUES = ['PL', 'PD', 'BL1', 'SA', 'FL1']; // 5 giải hàng đầu Châu
 async function syncLiveMatches() {
     try {
         console.log('Đang lấy dữ liệu bóng đá từ football-data.org...');
-        const response = await axios.get('https://api.football-data.org/v4/matches', {
+        const response = await axios.get('https://api.football-data.org/v4/matches?dateFrom=2026-04-01&dateTo=2026-04-10', {
             headers: { 'X-Auth-Token': FOOTBALL_API_TOKEN }
         });
         const matches = response.data.matches;
@@ -49,6 +49,7 @@ async function syncLiveMatches() {
             updated_at: new Date().toISOString(),
             league_code: match.competition?.code ?? 'UNKNOWN'
         }));
+
         const { error } = await supabase.from('live_matches').upsert(matchDataToUpsert, { onConflict: 'api_match_id' });
         if (error) console.error('Lỗi khi lưu Live Match:', error);
         else console.log(`[${new Date().toLocaleTimeString()}] Đã cập nhật ${matchDataToUpsert.length} trận trực tiếp!`);
