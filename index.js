@@ -49,7 +49,7 @@ async function syncLiveMatches() {
             updated_at: new Date().toISOString(),
             league_code: match.competition?.code ?? 'UNKNOWN'
         }));
-
+        console.log("👉 SOI DỮ LIỆU TRẬN ĐẦU TIÊN:", matchDataToUpsert[0]);
         const { error } = await supabase.from('live_matches').upsert(matchDataToUpsert, { onConflict: 'api_match_id' });
         if (error) console.error('Lỗi khi lưu Live Match:', error);
         else console.log(`[${new Date().toLocaleTimeString()}] Đã cập nhật ${matchDataToUpsert.length} trận trực tiếp!`);
