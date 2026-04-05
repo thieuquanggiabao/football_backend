@@ -175,7 +175,7 @@ app.get('/api/teams/:id', async (req, res) => {
 syncLiveMatches();
 fetchAndSaveNews();
 fetchAndSaveStandings();
-setTimeout(fetchAndSaveTeamNews, 10000);
+//setTimeout(fetchAndSaveTeamNews, 10000);
 // Đặt chuông báo thức
 setInterval(syncLiveMatches, 60 * 1000); // 1 phút / lần
 cron.schedule('0 */2 * * *', fetchAndSaveStandings); // 2 tiếng / lần
