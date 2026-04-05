@@ -46,7 +46,8 @@ async function syncLiveMatches() {
             away_logo: match.awayTeam.crest ?? '',
             status: match.status,
             started_at: match.utcDate,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            league_code: match.competition?.code ?? 'UNKNOWN'
         }));
 
         const { error } = await supabase.from('live_matches').upsert(matchDataToUpsert, { onConflict: 'api_match_id' });
@@ -126,7 +127,6 @@ async function fetchAndSaveStandings() {
         }
     }
 }
-
 // ==========================================
 // KHU VỰC 3: CÁC CỔNG GIAO TIẾP (API ROUTES)
 // ==========================================
@@ -175,7 +175,7 @@ app.get('/api/teams/:id', async (req, res) => {
 syncLiveMatches();
 fetchAndSaveNews();
 fetchAndSaveStandings();
-
+setTimeout(fetchAndSaveTeamNews, 10000);
 // Đặt chuông báo thức
 setInterval(syncLiveMatches, 60 * 1000); // 1 phút / lần
 cron.schedule('0 */2 * * *', fetchAndSaveStandings); // 2 tiếng / lần
