@@ -140,35 +140,38 @@ async function fetchAndSaveStandings() {
 
 // Tạo link thanh toán Premium
 app.post('/api/create-payment', async (req, res) => {
-    const { userId, packageType } = req.body;
+    // 1. Nhận trực tiếp amount và planName từ App Flutter gửi lên
+    const { userId, packageType, planName, amount } = req.body;
 
-    if (!userId || !packageType) {
-        return res.status(400).json({ success: false, message: 'Thiếu userId hoặc packageType' });
+    if (!userId || !packageType || !amount) {
+        return res.status(400).json({ success: false, message: 'Thiếu dữ liệu gửi lên từ App' });
     }
 
-    const amount = packageType === 'monthly' ? 29000 : 199000;
-    const description = packageType === 'monthly' ? 'Premium 1 thang' : 'Premium 1 nam';
+    // 2. Dùng chính tên gói từ Flutter làm mô tả (giới hạn 25 ký tự theo luật PayOS)
+    const description = planName.substring(0, 25);
 
-    // Tạo orderCode là số nguyên (giới hạn an toàn của PayOS)
+    // 3. Tạo mã đơn hàng (số nguyên)
     const orderCode = Number(String(Date.now()).slice(-9));
 
     try {
-        // BƯỚC 1: Lưu đơn hàng vào DB với trạng thái 'pending' TRƯỚC KHI gọi PayOS
-        // Giả sử bạn đã tạo bảng 'transactions' trên Supabase
+        // Lưu giao dịch vào Database (Trạng thái pending)
         const { error: dbError } = await supabase.from('transactions').insert({
             order_id: orderCode,
             user_id: userId,
-            amount: amount,
+            amount: amount, // Lấy đúng số tiền 2000đ lưu vào DB
             status: 'pending'
         });
 
-        if (dbError) throw new Error('Không thể lưu giao dịch vào Database');
+        if (dbError) {
+            console.error("🚨 LỖI SUPABASE:", dbError);
+            throw new Error('Lỗi DB: ' + dbError.message);
+        }
 
-        // BƯỚC 2: Gọi PayOS (Cấu trúc của phiên bản mới)
+        // Gọi PayOS với giá trị ĐỘNG
         const payment = await payos.paymentRequests.create({
             orderCode: orderCode,
-            amount: amount,
-            description: description,
+            amount: amount,             // Truyền 2000đ cho PayOS
+            description: description,   // Truyền "NHA Pro" cho PayOS
             returnUrl: 'footballapp://payment-success',
             cancelUrl: 'footballapp://payment-cancel',
             items: [{ name: description, quantity: 1, price: amount }]
