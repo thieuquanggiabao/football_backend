@@ -3,7 +3,7 @@ const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const express = require('express');
-const PayOS = require('@payos/node').default || require('@payos/node');
+const { PayOS } = require('@payos/node');
 // ==========================================
 // KHU VỰC 1: KHỞI TẠO BIẾN TOÀN CỤC
 // ==========================================
@@ -20,11 +20,11 @@ const port = process.env.PORT || 3000;
 const LEAGUES = ['PL', 'PD', 'BL1', 'SA', 'FL1']; // 5 giải hàng đầu Châu Âu
 
 // Khởi tạo PayOS
-const payos = new PayOS(
-    process.env.PAYOS_CLIENT_ID,
-    process.env.PAYOS_API_KEY,
-    process.env.PAYOS_CHECKSUM_KEY
-);
+const payos = new PayOS({
+    clientId: process.env.PAYOS_CLIENT_ID,
+    apiKey: process.env.PAYOS_API_KEY,
+    checksumKey: process.env.PAYOS_CHECKSUM_KEY
+});
 // ==========================================
 // KHU VỰC 2: CÁC HÀM XỬ LÝ (SĂN TIN, TỈ SỐ, BXH)
 // ==========================================
@@ -164,15 +164,14 @@ app.post('/api/create-payment', async (req, res) => {
 
         if (dbError) throw new Error('Không thể lưu giao dịch vào Database');
 
-        // BƯỚC 2: Gọi PayOS
-        const payment = await payos.createPaymentLink({
+        // BƯỚC 2: Gọi PayOS (Cấu trúc của phiên bản mới)
+        const payment = await payos.paymentRequests.create({
             orderCode: orderCode,
-            amount,
-            description,
+            amount: amount,
+            description: description,
             returnUrl: 'footballapp://payment-success',
             cancelUrl: 'footballapp://payment-cancel',
-            items: [{ name: description, quantity: 1, price: amount }],
-            // Không cần nhét userId vào buyerName nữa
+            items: [{ name: description, quantity: 1, price: amount }]
         });
 
         res.json({
@@ -189,7 +188,7 @@ app.post('/api/create-payment', async (req, res) => {
 // Webhook nhận kết quả thanh toán từ PayOS
 app.post('/api/webhook', async (req, res) => {
     try {
-        const webhookData = payos.verifyPaymentWebhookData(req.body);
+        const webhookData = payos.webhooks.verify(req.body);
 
         // Code '00' là giao dịch thành công của PayOS
         if (webhookData.code === '00') {
