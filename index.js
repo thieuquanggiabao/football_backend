@@ -3,7 +3,7 @@ const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const express = require('express');
-const PayOS = require('@payos/node');
+const PayOS = require('@payos/node').default || require('@payos/node');
 // ==========================================
 // KHU VỰC 1: KHỞI TẠO BIẾN TOÀN CỤC
 // ==========================================
