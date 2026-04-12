@@ -3,7 +3,7 @@ const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const express = require('express');
-
+const PayOS = require('@payos/node');
 // ==========================================
 // KHU VỰC 1: KHỞI TẠO BIẾN TOÀN CỤC
 // ==========================================
@@ -15,9 +15,16 @@ const FOOTBALL_API_TOKEN = process.env.FOOTBALL_API_TOKEN;
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 
 const app = express();
+app.use(express.json());
 const port = process.env.PORT || 3000;
 const LEAGUES = ['PL', 'PD', 'BL1', 'SA', 'FL1']; // 5 giải hàng đầu Châu Âu
 
+// Khởi tạo PayOS
+const payos = new PayOS(
+    process.env.PAYOS_CLIENT_ID,
+    process.env.PAYOS_API_KEY,
+    process.env.PAYOS_CHECKSUM_KEY
+);
 // ==========================================
 // KHU VỰC 2: CÁC HÀM XỬ LÝ (SĂN TIN, TỈ SỐ, BXH)
 // ==========================================
@@ -127,6 +134,104 @@ async function fetchAndSaveStandings() {
         }
     }
 }
+// ==========================================
+// PAYOS: CÁC ROUTE THANH TOÁN (ĐÃ VÁ LỖI)
+// ==========================================
+
+// Tạo link thanh toán Premium
+app.post('/api/create-payment', async (req, res) => {
+    const { userId, packageType } = req.body;
+
+    if (!userId || !packageType) {
+        return res.status(400).json({ success: false, message: 'Thiếu userId hoặc packageType' });
+    }
+
+    const amount = packageType === 'monthly' ? 29000 : 199000;
+    const description = packageType === 'monthly' ? 'Premium 1 thang' : 'Premium 1 nam';
+
+    // Tạo orderCode là số nguyên (giới hạn an toàn của PayOS)
+    const orderCode = Number(String(Date.now()).slice(-9));
+
+    try {
+        // BƯỚC 1: Lưu đơn hàng vào DB với trạng thái 'pending' TRƯỚC KHI gọi PayOS
+        // Giả sử bạn đã tạo bảng 'transactions' trên Supabase
+        const { error: dbError } = await supabase.from('transactions').insert({
+            order_id: orderCode,
+            user_id: userId,
+            amount: amount,
+            status: 'pending'
+        });
+
+        if (dbError) throw new Error('Không thể lưu giao dịch vào Database');
+
+        // BƯỚC 2: Gọi PayOS
+        const payment = await payos.createPaymentLink({
+            orderCode: orderCode,
+            amount,
+            description,
+            returnUrl: 'footballapp://payment-success',
+            cancelUrl: 'footballapp://payment-cancel',
+            items: [{ name: description, quantity: 1, price: amount }],
+            // Không cần nhét userId vào buyerName nữa
+        });
+
+        res.json({
+            success: true,
+            paymentUrl: payment.checkoutUrl,
+            orderCode: payment.orderCode
+        });
+    } catch (error) {
+        console.error('❌ Lỗi tạo link thanh toán:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Webhook nhận kết quả thanh toán từ PayOS
+app.post('/api/webhook', async (req, res) => {
+    try {
+        const webhookData = payos.verifyPaymentWebhookData(req.body);
+
+        // Code '00' là giao dịch thành công của PayOS
+        if (webhookData.code === '00') {
+            const orderCode = webhookData.orderCode;
+            console.log(`✅ PayOS báo tiền về cho đơn: ${orderCode}`);
+
+            // 1. Tìm userId thông qua orderCode đã lưu lúc nãy
+            const { data: tx, error: txError } = await supabase
+                .from('transactions')
+                .select('user_id')
+                .eq('order_id', orderCode)
+                .single();
+
+            if (txError || !tx) {
+                console.error('❌ Không tìm thấy đơn hàng trong Database!');
+                return res.json({ success: true }); // Vẫn trả về true để PayOS không gửi lại tin nhắn nữa
+            }
+
+            const userId = tx.user_id;
+
+            // 2. Cập nhật bảng 'transactions' thành công
+            await supabase.from('transactions').update({ status: 'success' }).eq('order_id', orderCode);
+
+            // 3. Nâng cấp VIP (Update vào bảng profiles hoặc user_subscriptions, KHÔNG cập nhật auth.users)
+            const { error: upgradeError } = await supabase
+                .from('profiles') // Đổi tên bảng này cho đúng với DB của bạn
+                .update({
+                    is_premium: true,
+                    premium_since: new Date().toISOString()
+                })
+                .eq('id', userId); // Liên kết bằng UUID của user
+
+            if (upgradeError) console.error('❌ Lỗi cập nhật Premium:', upgradeError);
+            else console.log(`🎉 User ${userId} đã được nâng lên Premium!`);
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('❌ Webhook error:', error.message);
+        res.status(400).json({ success: false });
+    }
+});
 // ==========================================
 // KHU VỰC 3: CÁC CỔNG GIAO TIẾP (API ROUTES)
 // ==========================================
