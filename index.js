@@ -166,12 +166,13 @@ app.post('/api/create-payment', async (req, res) => {
             console.error("🚨 LỖI SUPABASE:", dbError);
             throw new Error('Lỗi DB: ' + dbError.message);
         }
-
+        const expiredAt = Math.floor(Date.now() / 1000) + (15 * 60);
         // Gọi PayOS với giá trị ĐỘNG
         const payment = await payos.paymentRequests.create({
             orderCode: orderCode,
             amount: amount,             // Truyền 2000đ cho PayOS
             description: description,   // Truyền "NHA Pro" cho PayOS
+            expiredAt: expiredAt,
             returnUrl: 'footballapp://payment-success',
             cancelUrl: 'footballapp://payment-cancel',
             items: [{ name: description, quantity: 1, price: amount }]
@@ -290,4 +291,26 @@ cron.schedule('0 */1 * * *', fetchAndSaveNews); // 1 tiếng / lần
 
 app.listen(port, () => {
     console.log(`🚪 Cánh cửa đã được mở tại cổng số ${port}`);
+});
+// Robot dọn dẹp đơn hàng rác (Chạy 15 phút một lần)
+cron.schedule('*/15 * * * *', async () => {
+    try {
+        console.log('🧹 Đang dọn dẹp các đơn hàng pending quá hạn...');
+
+        // Lấy mốc thời gian 15 phút trước
+        const cutoffTime = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+        // Xóa hẳn các đơn hàng vẫn đang 'pending' mà được tạo từ trước mốc thời gian kia
+        const { data, error } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('status', 'pending')
+            .lt('created_at', cutoffTime);
+        // .lt nghĩa là "less than" (nhỏ hơn/cũ hơn mốc cutoffTime)
+
+        if (error) throw error;
+        console.log('✅ Đã dọn sạch các giao dịch rác!');
+    } catch (error) {
+        console.error('❌ Lỗi dọn dẹp Database:', error.message);
+    }
 });
