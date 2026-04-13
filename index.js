@@ -159,7 +159,6 @@ app.post('/api/create-payment', async (req, res) => {
             order_id: orderCode,
             user_id: userId,
             amount: amount, // Lấy đúng số tiền lưu vào DB
-            plan_code: packageType, // Đã bổ sung lưu plan_code (packageType) từ Frontend
             status: 'pending'
         });
 
@@ -200,10 +199,10 @@ app.post('/api/webhook', async (req, res) => {
             const orderCode = webhookData.orderCode;
             console.log(`✅ PayOS báo tiền về cho đơn: ${orderCode}`);
 
-            // 1. Tìm userId và plan_code thông qua orderCode đã lưu lúc nãy
+            // 1. Tìm userId và amount thông qua orderCode đã lưu lúc nãy
             const { data: tx, error: txError } = await supabase
                 .from('transactions')
-                .select('user_id, plan_code')
+                .select('user_id, amount')
                 .eq('order_id', orderCode)
                 .single();
 
@@ -213,24 +212,24 @@ app.post('/api/webhook', async (req, res) => {
             }
 
             const userId = tx.user_id;
-            const planCode = tx.plan_code;
+            const txAmount = tx.amount;
 
             // 2. Cập nhật bảng 'transactions' thành công
             await supabase.from('transactions').update({ status: 'success' }).eq('order_id', orderCode);
 
-            // 3. Ánh xạ planCode ra danh sách giải đấu được mở khóa
+            // 3. Phân rã gói theo số chi phí thanh toán do bảng transactions đã xoá cột plan_code
+            let planCode = 'UNKNOWN';
             let unlockedLeagues = [];
-            switch (planCode) {
-                case 'NHA_PRO': unlockedLeagues = ['PL']; break;
-                case 'LALIGA_PRO': unlockedLeagues = ['PD']; break;
-                case 'BUNDESLIGA_PRO': unlockedLeagues = ['BL1']; break;
-                case 'SERIA_PRO': unlockedLeagues = ['SA']; break;
-                case 'SUPER_PRO': unlockedLeagues = ['PL', 'PD', 'BL1', 'SA', 'FL1']; break;
-                default: break;
+            switch (txAmount) {
+                case 299000: planCode = 'NHA_PRO'; unlockedLeagues = ['PL']; break;
+                case 199000: planCode = 'LALIGA_PRO'; unlockedLeagues = ['PD']; break;
+                case 149000: planCode = 'BUNDESLIGA_PRO'; unlockedLeagues = ['BL1']; break;
+                case 2000: planCode = 'SERIA_PRO'; unlockedLeagues = ['SA']; break;
+                case 699000: planCode = 'SUPER_PRO'; unlockedLeagues = ['PL', 'PD', 'BL1', 'SA', 'FL1']; break;
             }
 
             const expireDate = new Date();
-            expireDate.setDate(expireDate.getDate() + 30); // Tính +30 ngày
+            expireDate.setFullYear(expireDate.getFullYear() + 1); // Đã chuyển thành 1 năm (365 ngày)
 
             // 4. Nâng cấp VIP (Update thẳng vào bảng profiles với expire_date và unlocked_leagues)
             const { error: upgradeError } = await supabase
