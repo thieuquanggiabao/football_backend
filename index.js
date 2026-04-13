@@ -158,7 +158,8 @@ app.post('/api/create-payment', async (req, res) => {
         const { error: dbError } = await supabase.from('transactions').insert({
             order_id: orderCode,
             user_id: userId,
-            amount: amount, // Lấy đúng số tiền 2000đ lưu vào DB
+            amount: amount, // Lấy đúng số tiền lưu vào DB
+            plan_code: packageType, // Đã bổ sung lưu plan_code (packageType) từ Frontend
             status: 'pending'
         });
 
@@ -199,10 +200,10 @@ app.post('/api/webhook', async (req, res) => {
             const orderCode = webhookData.orderCode;
             console.log(`✅ PayOS báo tiền về cho đơn: ${orderCode}`);
 
-            // 1. Tìm userId thông qua orderCode đã lưu lúc nãy
+            // 1. Tìm userId và plan_code thông qua orderCode đã lưu lúc nãy
             const { data: tx, error: txError } = await supabase
                 .from('transactions')
-                .select('user_id')
+                .select('user_id, plan_code')
                 .eq('order_id', orderCode)
                 .single();
 
@@ -212,21 +213,39 @@ app.post('/api/webhook', async (req, res) => {
             }
 
             const userId = tx.user_id;
+            const planCode = tx.plan_code;
 
             // 2. Cập nhật bảng 'transactions' thành công
             await supabase.from('transactions').update({ status: 'success' }).eq('order_id', orderCode);
 
-            // 3. Nâng cấp VIP (Update vào bảng profiles hoặc user_subscriptions, KHÔNG cập nhật auth.users)
+            // 3. Ánh xạ planCode ra danh sách giải đấu được mở khóa
+            let unlockedLeagues = [];
+            switch (planCode) {
+                case 'NHA_PRO': unlockedLeagues = ['PL']; break;
+                case 'LALIGA_PRO': unlockedLeagues = ['PD']; break;
+                case 'BUNDESLIGA_PRO': unlockedLeagues = ['BL1']; break;
+                case 'SERIA_PRO': unlockedLeagues = ['SA']; break;
+                case 'SUPER_PRO': unlockedLeagues = ['PL', 'PD', 'BL1', 'SA', 'FL1']; break;
+                default: break;
+            }
+
+            const expireDate = new Date();
+            expireDate.setDate(expireDate.getDate() + 30); // Tính +30 ngày
+
+            // 4. Nâng cấp VIP (Update thẳng vào bảng profiles với expire_date và unlocked_leagues)
             const { error: upgradeError } = await supabase
-                .from('profiles') // Đổi tên bảng này cho đúng với DB của bạn
+                .from('profiles')
                 .update({
                     is_premium: true,
+                    plan_code: planCode,
+                    unlocked_leagues: unlockedLeagues,
+                    expire_date: expireDate.toISOString(),
                     premium_since: new Date().toISOString()
                 })
-                .eq('id', userId); // Liên kết bằng UUID của user
+                .eq('id', userId);
 
-            if (upgradeError) console.error('❌ Lỗi cập nhật Premium:', upgradeError);
-            else console.log(`🎉 User ${userId} đã được nâng lên Premium!`);
+            if (upgradeError) console.error('❌ Lỗi cập nhật Premium vào profiles:', upgradeError);
+            else console.log(`🎉 User ${userId} đã được cấu hình cấp Premium (${planCode}) thành công!`);
         }
 
         res.json({ success: true });
