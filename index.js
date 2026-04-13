@@ -194,13 +194,21 @@ app.post('/api/webhook', async (req, res) => {
     try {
         console.log("==> NHẬN WEBHOOK GIAO DỊCH TỪ PAYOS:", req.body);
         
-        // Sử dụng hàm chuẩn của PayOS v2 để xác thực và lấy dữ liệu (trả về cục data)
-        const webhookData = payos.verifyPaymentWebhookData(req.body);
+        // Khôi phục lại lệnh nhận dữ liệu linh hoạt (kể cả khi thư viện thiếu version verify method)
+        let webhookData;
+        if (typeof payos.verifyPaymentWebhookData === 'function') {
+            webhookData = payos.verifyPaymentWebhookData(req.body);
+        } else if (payos.webhooks && typeof payos.webhooks.verify === 'function') {
+            webhookData = payos.webhooks.verify(req.body);
+        }
 
-        // Code verifyPaymentWebhookData thành công là đã xác thực an toàn chữ ký
-        if (webhookData && webhookData.orderCode) {
+        // Ưu tiên fallback nhặt trực tiếp từ req.body.data
+        const orderCodeRaw = req.body.data?.orderCode || webhookData?.orderCode;
+
+        // Tiến hành ghi nhận nếu có mã thanh toán
+        if (orderCodeRaw) {
             // Ép kiểu sang chuỗi để đối chiếu bảng transactions có order_id là (text)
-            const orderCodeStr = String(webhookData.orderCode);
+            const orderCodeStr = String(orderCodeRaw);
             console.log(`✅ PayOS báo tiền về cho đơn: ${orderCodeStr}`);
 
             // 1. Tìm userId và amount thông qua orderCode đã lưu lúc nãy
