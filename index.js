@@ -192,18 +192,22 @@ app.post('/api/create-payment', async (req, res) => {
 // Webhook nhận kết quả thanh toán từ PayOS
 app.post('/api/webhook', async (req, res) => {
     try {
-        const webhookData = payos.webhooks.verify(req.body);
+        console.log("==> NHẬN WEBHOOK GIAO DỊCH TỪ PAYOS:", req.body);
+        
+        // Sử dụng hàm chuẩn của PayOS v2 để xác thực và lấy dữ liệu (trả về cục data)
+        const webhookData = payos.verifyPaymentWebhookData(req.body);
 
-        // Code '00' là giao dịch thành công của PayOS
-        if (webhookData.code === '00') {
-            const orderCode = webhookData.orderCode;
-            console.log(`✅ PayOS báo tiền về cho đơn: ${orderCode}`);
+        // Code verifyPaymentWebhookData thành công là đã xác thực an toàn chữ ký
+        if (webhookData && webhookData.orderCode) {
+            // Ép kiểu sang chuỗi để đối chiếu bảng transactions có order_id là (text)
+            const orderCodeStr = String(webhookData.orderCode);
+            console.log(`✅ PayOS báo tiền về cho đơn: ${orderCodeStr}`);
 
             // 1. Tìm userId và amount thông qua orderCode đã lưu lúc nãy
             const { data: tx, error: txError } = await supabase
                 .from('transactions')
                 .select('user_id, amount')
-                .eq('order_id', orderCode)
+                .eq('order_id', orderCodeStr)
                 .single();
 
             if (txError || !tx) {
@@ -215,7 +219,7 @@ app.post('/api/webhook', async (req, res) => {
             const txAmount = tx.amount;
 
             // 2. Cập nhật bảng 'transactions' thành công
-            await supabase.from('transactions').update({ status: 'success' }).eq('order_id', orderCode);
+            await supabase.from('transactions').update({ status: 'success' }).eq('order_id', orderCodeStr);
 
             // 3. Phân rã gói theo số chi phí thanh toán do bảng transactions đã xoá cột plan_code
             let planCode = 'UNKNOWN';
