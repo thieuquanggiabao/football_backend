@@ -243,17 +243,17 @@ app.post('/api/webhook', async (req, res) => {
             const expireDate = new Date();
             expireDate.setFullYear(expireDate.getFullYear() + 1); // Đã chuyển thành 1 năm (365 ngày)
 
-            // 4. Nâng cấp VIP (Update thẳng vào bảng profiles với expire_date và unlocked_leagues)
+            // 4. Nâng cấp VIP (Sử dụng upsert thay vì update để nếu tài khoản cũ chưa có row trong profile thì tự push luôn)
             const { error: upgradeError } = await supabase
                 .from('profiles')
-                .update({
+                .upsert({
+                    id: userId,
                     is_premium: true,
                     plan_code: planCode,
                     unlocked_leagues: unlockedLeagues,
                     expire_date: expireDate.toISOString(),
                     premium_since: new Date().toISOString()
-                })
-                .eq('id', userId);
+                }, { onConflict: 'id' });
 
             if (upgradeError) console.error('❌ Lỗi cập nhật Premium vào profiles:', upgradeError);
             else console.log(`🎉 User ${userId} đã được cấu hình cấp Premium (${planCode}) thành công!`);
