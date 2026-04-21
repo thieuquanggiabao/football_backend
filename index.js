@@ -17,7 +17,7 @@ const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || 3000;
-const LEAGUES = ['PL', 'PD', 'BL1', 'SA', 'FL1']; // 5 giải hàng đầu Châu Âu
+const LEAGUES = ['PL', 'PD', 'BL1', 'SA', 'FL1', 'CL']; // 5 giải hàng đầu Châu Âu
 
 // Khởi tạo PayOS
 const payos = new PayOS({
@@ -193,7 +193,7 @@ app.post('/api/create-payment', async (req, res) => {
 app.post('/api/webhook', async (req, res) => {
     try {
         console.log("==> NHẬN WEBHOOK GIAO DỊCH TỪ PAYOS:", req.body);
-        
+
         // Khôi phục lại lệnh nhận dữ liệu linh hoạt (kể cả khi thư viện thiếu version verify method)
         let webhookData;
         if (typeof payos.verifyPaymentWebhookData === 'function') {
